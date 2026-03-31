@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ClearChat</title>
+</head>
+
+<body>
+    <input id="username" placeholder="username" />
+    <button onclick="connect()">Connect</button>
+
+    <br><br>
+
+    <input id="msg" placeholder="message" />
+    <button onclick="send()">Send</button>
+
+</body>
+
+<script>
+let socket = null;
+
+function connect() {
+    let username = document.getElementById("username").value;
+
+    socket = new WebSocket(
+        `ws://localhost:8000/ws?user=${encodeURIComponent(username)}`
+    );
+
+    socket.onopen = () => {
+        console.log("Connected as", username);
+    };
+
+    socket.onmessage = (event) => {
+        console.log("Received:", event.data);
+    };
+
+    socket.onclose = () => {
+        console.log("Disconnected");
+    };
+}
+
+function send() {
+    let val = document.getElementById("msg").value;
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(val);
+    } else {
+        console.log("Socket not connected");
+    }
+}
+</script>
+
+</html>
