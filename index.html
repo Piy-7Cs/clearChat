@@ -1,53 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>ClearChat</title>
+  <meta charset="utf-8" />
+  <title>ClearChat</title>
+  <style>
+    #chat { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 8px; }
+    .meta { color: #666; font-size: 0.9em; margin-bottom: 6px; }
+    .msg { margin: 4px 0; }
+  </style>
 </head>
-
 <body>
-    <input id="username" placeholder="username" />
-    <button onclick="connect()">Connect</button>
+  <input id="username" placeholder="username" />
+  <input id="target" placeholder="Connect with recipeint" />
+  <button onclick="connect()">Connect</button>
 
-    <br><br>
+  <div id="chat" aria-live="polite"></div>
 
-    <input id="msg" placeholder="message" />
-    <button onclick="send()">Send</button>
-
-</body>
+  <br>
+  <input id="msg" placeholder="message" />
+  <button onclick="send()">Send</button>
 
 <script>
 let socket = null;
 
+function appendToChat(text, cls = 'msg') {
+  const chat = document.getElementById('chat');
+  const el = document.createElement('div');
+  el.className = cls;
+  el.textContent = text;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight; // auto-scroll
+}
+
 function connect() {
-    let username = document.getElementById("username").value;
+  const username = document.getElementById('username').value || 'Anonymous';
+  const target = document.getElementById('target').value;
+  socket = new WebSocket(`ws://localhost:8000/ws?user=${encodeURIComponent(username)}&target=${encodeURIComponent(target)}`);
 
-    socket = new WebSocket(
-        `ws://localhost:8000/ws?user=${encodeURIComponent(username)}`
-    );
+  socket.onopen = () => {
+    appendToChat(`Connected as ${username}`, 'meta');
+  };
 
-    socket.onopen = () => {
-        console.log("Connected as", username);
-    };
+  socket.onmessage = (event) => {
+    appendToChat(event.data);
+  };
 
-    socket.onmessage = (event) => {
-        console.log("Received:", event.data);
-    };
+  socket.onclose = () => {
+    appendToChat('Disconnected', 'meta');
+  };
 
-    socket.onclose = () => {
-        console.log("Disconnected");
-    };
+  socket.onerror = (err) => {
+    appendToChat('Socket error', 'meta');
+    console.error(err);
+  };
 }
 
 function send() {
-    let val = document.getElementById("msg").value;
-
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(val);
-    } else {
-        console.log("Socket not connected");
-    }
+  const val = document.getElementById('msg').value;
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(val);
+    appendToChat(`You: ${val}`); //local echo
+    document.getElementById('msg').value = '';
+  } else {
+    appendToChat('Socket not connected', 'meta');
+  }
 }
 </script>
-
+</body>
 </html>
