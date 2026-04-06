@@ -1,83 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>ClearChat</title>
-  <style>
-    #chat { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 8px; }
-    .meta { color: #666; font-size: 0.9em; margin-bottom: 6px; }
-    .msg { margin: 4px 0; }
-  </style>
+<meta charset="utf-8" />
+<title>ClearChat Pro</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  display: flex;
+  height: 100vh;
+  margin: 0;
+}
+
+/* Sidebar */
+#sidebar {
+  width: 300px;
+  background: #111827;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid #1f2937;
+}
+
+input, select, button {
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  outline: none;
+}
+
+input, select {
+  background: #1f2937;
+  color: white;
+}
+
+button {
+  background: #3b82f6;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+/* Chat area */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#chat {
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.msg {
+  margin: 6px 0;
+}
+
+.me {
+  color: #60a5fa;
+}
+
+.system {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.error {
+  color: #f87171;
+}
+
+/* bottom input */
+#inputBar {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid #1f2937;
+  background: #0b1220;
+}
+
+#msg {
+  flex: 1;
+}
+</style>
 </head>
+
 <body>
+
+
+<div id="sidebar">
+
   <input id="username" placeholder="username" />
-  <input id="target" placeholder="Connect with recipeint" />
   <button onclick="connect()">Connect</button>
 
-  <div id="chat" aria-live="polite"></div>
+  <hr style="width:100%; opacity:0.2">
 
-  <br>
-  <input id="msg" placeholder="message" />
-  <button onclick="send()">Send</button>
+  <select id="mode">
+    <option value="room">Room Chat</option>
+    <option value="private">Private Chat</option>
+  </select>
+
+  <input id="room_id" placeholder="room id (e.g. dev)" />
+  <input id="target" placeholder="private user (optional)" />
+
+  <button onclick="joinRoom()">Join Room</button>
+
+</div>
+
+<!-- MAIN CHAT -->
+<div id="main">
+
+  <div id="chat"></div>
+
+  <div id="inputBar">
+    <input id="msg" placeholder="type message..." />
+    <button onclick="send()">Send</button>
+  </div>
+
+</div>
 
 <script>
 let socket = null;
+let username = null;
+let currentRoom = null;
 
-function appendToChat(text, cls = 'msg') {
-  const chat = document.getElementById('chat');
-  const el = document.createElement('div');
-  el.className = cls;
-  el.textContent = text;
-  chat.appendChild(el);
-  chat.scrollTop = chat.scrollHeight; // auto-scroll
+
+function add(text, cls = "msg") {
+  const chat = document.getElementById("chat");
+  const div = document.createElement("div");
+  div.className = cls;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
 }
 
+
 function connect() {
-  const username = document.getElementById('username').value || 'Anonymous';
-  const target = document.getElementById('target').value;
-  console.log(username, target)
-  socket = new WebSocket(`ws://localhost:8000/ws?user=${encodeURIComponent(username)}`);
+  username = document.getElementById("username").value;
+
+  if (!username) {
+    alert("Enter username");
+    return;
+  }
+
+  socket = new WebSocket(`ws://localhost:8000/ws?user=${username}`);
 
   socket.onopen = () => {
-    appendToChat(`Connected as ${username}`, 'meta');
+    add(`Connected as ${username}`, "system");
   };
 
   socket.onmessage = (event) => {
-  let msg;
-  try { msg = JSON.parse(event.data); }
-  catch { msg = { message: event.data }; }
-  appendToChat(`${msg.from || 'Peer'}: ${msg.message}`);
+    const data = JSON.parse(event.data);
+
+    if (data.error) {
+      add(data.error, "error");
+      return;
+    }
+
+    if (data.from === "system") {
+      add(data.message, "system");
+    } else if (data.from === username) {
+      add(`You: ${data.message}`, "me");
+    } else {
+      add(`${data.from}: ${data.message}`);
+    }
   };
 
+  socket.onclose = () => add("Disconnected", "system");
+}
 
-  socket.onclose = () => {
-    appendToChat('Disconnected', 'meta');
-  };
 
-  socket.onerror = (err) => {
-    appendToChat('Socket error', 'meta');
-    console.error(err);
-  };
+function joinRoom() {
+  const room = document.getElementById("room_id").value;
+
+  if (!socket) return alert("Connect first");
+
+  currentRoom = room;
+
+  socket.send(JSON.stringify({
+    action: "join",
+    room_id: room
+  }));
+
+  add(`Joining room ${room}...`, "system");
 }
 
 function send() {
-  const val = document.getElementById('msg').value;
-  const username = document.getElementById('username').value || 'Anonymous';
-  const target = document.getElementById('target').value || '';
+  const msg = document.getElementById("msg").value;
+  const mode = document.getElementById("mode").value;
+  const target = document.getElementById("target").value;
 
+  if (!socket) return alert("Connect first");
+  if (!msg) return;
 
-  const message = {
-    "target" : target,
-    "message" : val
+  if (mode === "room") {
+    if (!currentRoom) return add("Join a room first", "error");
+
+    socket.send(JSON.stringify({
+      action: "send_room_message",
+      room_id: currentRoom,
+      message: msg
+    }));
+
+    add(`You: ${msg}`, "me");
   }
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(message));
-    appendToChat(`You: ${val}`); //local echo
-    document.getElementById('msg').value = '';
-  } else {
-    appendToChat('Socket not connected', 'meta');
+
+  if (mode === "private") {
+    if (!target) return add("Enter target user", "error");
+
+    socket.send(JSON.stringify({
+      action: "private",
+      target: target,
+      message: msg
+    }));
+
+    add(`You → ${target}: ${msg}`, "me");
   }
+
+  document.getElementById("msg").value = "";
 }
 </script>
+
 </body>
 </html>
