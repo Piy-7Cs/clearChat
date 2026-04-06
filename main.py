@@ -23,9 +23,9 @@ class ConnectionManager():
         self.active.pop(user_id, None)
         
 
-    async def send_message(self, user_id, target, message:str):
+    def get_target_connection(self, target):
         if target in self.active:
-            await self.active[target].send_json(message)
+            return self.active[target]
         else:
             raise KeyError("Recipient Not connected")
 
@@ -40,21 +40,27 @@ chat = ConnectionManager()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket : WebSocket):
     user_id = websocket.query_params.get("user")
-    target = websocket.query_params.get("target")
     await chat.connect(user_id, websocket)
     try :
-
+        
+        
+         
         while True:
-            data = await websocket.receive_text()
-            message = {
-                "user" : user_id,
-                "target" : target,
-                "message" : data
-            }
-            await chat.send_message(user_id, target, message)
+            data = await websocket.receive_json()
+            print(data)
+            target = data["target"]
+
+            data["from"] = user_id
+            try:
+                target_socket = chat.get_target_connection(target)
+                await target_socket.send_json(data)
+
+            except KeyError:
+                await websocket.send_json({"error": "recipient not connected", "target": target})
+            
 
     except WebSocketDisconnect:
-        chat.disconnect(user_id, target, websocket)
+        chat.disconnect(user_id, websocket)
         print("client Disconnected")
         
 

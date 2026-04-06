@@ -35,15 +35,20 @@ function appendToChat(text, cls = 'msg') {
 function connect() {
   const username = document.getElementById('username').value || 'Anonymous';
   const target = document.getElementById('target').value;
-  socket = new WebSocket(`ws://localhost:8000/ws?user=${encodeURIComponent(username)}&target=${encodeURIComponent(target)}`);
+  console.log(username, target)
+  socket = new WebSocket(`ws://localhost:8000/ws?user=${encodeURIComponent(username)}`);
 
   socket.onopen = () => {
     appendToChat(`Connected as ${username}`, 'meta');
   };
 
   socket.onmessage = (event) => {
-    appendToChat(event.data);
+  let msg;
+  try { msg = JSON.parse(event.data); }
+  catch { msg = { message: event.data }; }
+  appendToChat(`${msg.from || 'Peer'}: ${msg.message}`);
   };
+
 
   socket.onclose = () => {
     appendToChat('Disconnected', 'meta');
@@ -57,8 +62,16 @@ function connect() {
 
 function send() {
   const val = document.getElementById('msg').value;
+  const username = document.getElementById('username').value || 'Anonymous';
+  const target = document.getElementById('target').value || '';
+
+
+  const message = {
+    "target" : target,
+    "message" : val
+  }
   if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(val);
+    socket.send(JSON.stringify(message));
     appendToChat(`You: ${val}`); //local echo
     document.getElementById('msg').value = '';
   } else {
