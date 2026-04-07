@@ -1,0 +1,61 @@
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from app.services.connection_manager import chat_manager
+
+
+router = APIRouter()
+
+
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    user_id = websocket.query_params.get("user")
+    if not user_id:
+        await websocket.close()
+        return
+    await chat_manager.connect(user_id, websocket)
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            action = data.get("action")
+
+            data["from"] = user_id
+
+            if action == "private":
+                target = data.get("target")
+
+                try: 
+                    target_socket = chat_manager.get_target_connection(target)
+                    await target_socket.send_json({
+                        "from": user_id,
+                        "message": data["message"]
+                    })
+                except KeyError:
+                    await websocket.send_json({"error": "recipient not connected"})
+            
+            elif action == "join":
+                room_id = data.get("room_id")
+                chat_manager.join_room(room_id, user_id)
+
+                await websocket.send_json({
+                    "from": "system",
+                    "message": f"Joined room {room_id}"
+                })
+
+            elif action == "send_room_message":
+
+                room_id = data.get("room_id")
+
+                if "message" not in data:
+                    continue
+                    
+                try:
+                    await chat_manager.broadcast(room_id, {
+                        "from": user_id,
+                        "message": data["message"]
+                    })
+                except KeyError:
+                    await websocket.send_json({
+                        "error" : "room not found"
+                    })
+    except WebSocketDisconnect:
+        chat_manager.disconnect(user_id)
