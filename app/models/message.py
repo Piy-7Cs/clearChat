@@ -1,6 +1,8 @@
 from sqlalchemy import Column, String, Integer, ForeignKey, DateTime
 from datetime import datetime
 from app.db.base import Base
+from app.models.user import User
+from app.models.room import Room
 
 
 class Message(Base):
@@ -10,4 +12,7 @@ class Message(Base):
     sender_id = Column(String, ForeignKey("users.id"))
     room_id = Column(String, ForeignKey("rooms.id"), nullable=True)
     content = Column(String)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
