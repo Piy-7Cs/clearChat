@@ -1,0 +1,13 @@
+from sqlalchemy import Column, String, Integer, ForeignKey, DateTime
+from datetime import datetime
+from app.db.base import Base
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(String, primary_key=True, index=True)
+    sender_id = Column(String, ForeignKey("users.id"))
+    room_id = Column(String, ForeignKey("rooms.id"), nullable=True)
+    content = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
