@@ -4,7 +4,7 @@ from app.db.session import SessionLocal
 from app.models.user import User
 from app.core.security import hash_password, verify_password, create_access_token
 from app.schemas.auth import SignupRequest, LoginRequest
-
+from sqlalchemy import or_, and_
 
 import uuid
 
@@ -36,9 +36,8 @@ def signup(data: SignupRequest):
 def login(data: LoginRequest):
     db: Session = SessionLocal()
 
-    user = db.query(User).filter(   User.user_email == data.identifier
-                                    or
-                                    User.username == data.identifier
+    user = db.query(User).filter(   or_(User.user_email == data.identifier,
+                                        User.username == data.identifier)
                                 ).first()
 
     if not user or not verify_password(data.password, user.hashed_password):

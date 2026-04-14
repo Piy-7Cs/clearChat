@@ -9,7 +9,10 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(String, primary_key=True, index=True)
+
     sender_id = Column(String, ForeignKey("users.id"))
+    recipient_id = Column(String, ForeignKey("users.id"), nullable=True)
+
     room_id = Column(String, ForeignKey("rooms.id"), nullable=True)
     content = Column(String)
     
