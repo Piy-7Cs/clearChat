@@ -8,6 +8,9 @@ from app.models.message import Message
 from app.db.session import SessionLocal
 import uuid
 
+#auth imports
+from app.core.security import decode_token
+
 
 
 
@@ -19,8 +22,21 @@ async def websocket_endpoint(websocket: WebSocket):
 
     db = SessionLocal()
 
+    token = websocket.query_params.get("token")
 
-    user_id = websocket.query_params.get("user")
+    if not token:
+        await websocket.close()
+        return
+
+    payload = decode_token(token)
+
+    if not payload:
+        await websocket.close()
+        return
+
+    user_id = payload.get("sub")
+
+
     if not user_id:
         await websocket.close()
         return
