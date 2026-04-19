@@ -169,9 +169,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 db.add(msg)
                 db.commit()
 
+                sender = db.query(User).filter(User.id == msg.sender_id).first()
+
                 try:
                     await chat_manager.broadcast(room_id, {
-                        "from": user_id,
+                        "from": sender.username if sender else "unknown",
                         "message": data["message"]
                     })
                 except KeyError:
