@@ -1,5 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from app.services.connection_manager import chat_manager
+from app.services.message_service import MessageService
+from sqlalchemy import or_, and_
 
 
 #DB imports
@@ -42,7 +44,9 @@ async def websocket_endpoint(websocket: WebSocket):
     if not user_id:
         await websocket.close()
         return
+    
     await chat_manager.connect(user_id, websocket)
+
 
     try:
         while True:
@@ -53,102 +57,65 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
             if action == "private":
-                target = data.get("target")
+            
+                try: 
 
-                target_user = db.query(User).filter(User.username == target).first()
-
-                if not target_user:
-                    await websocket.send_json({"error": "user not found"})
-                    continue
-
-                target_id = target_user.id
-
-                msg = Message(
-                    id = str(uuid.uuid4()),
-                    sender_id = user_id,
-                    recipient_id = target,
-                    room_id = None,
-                    content = data["message"]
+                    msg, target_id = MessageService.send_private_messgae(
+                    db, user_id, data.get("target"), data.get("message")
                 )
 
-                db.add(msg)
-                db.commit()
-
-
-                sender = db.query(User).filter(User.id == msg.sender_id).first()
-
-
-                try: 
-                    target_socket = chat_manager.get_target_connection(target_id)
-                    await target_socket.send_json({
-                        "from": sender.username if sender else "Unknown",
-                        "message": data["message"]
-                    })
-                except KeyError:
-                    await websocket.send_json({"error": "recipient not connected"})
+                    if target_id in chat_manager.active:
+                        await chat_manager.active[target_id].send_json({
+                            "from" : user_id,
+                            "message" : msg.content
+                        })
+                except ValueError as e:
+                    await websocket.send_json({"error": str(e)})
             
 
 
             elif action == "get_private_history":
-                from sqlalchemy import or_, and_
-
-                messages = db.query(Message).filter(
-                    or_(
-                        and_(
-                                Message.sender_id == user_id,
-                                Message.recipient_id == target
-                            ),
-
-                        and_(
-                                Message.sender_id == target,
-                                Message.recipient_id == user_id
-                            )
+                try:
+                    messages = MessageService.get_private_history(
+                        db, user_id, data.get("target")
                     )
-                ).order_by(Message.created_at.desc()).all()
-                    
-                messages = list(reversed(messages))
-
-                sender = db.query(User).filter(User.id == msg.sender_id).first()
-
-                await websocket.send_json({
-                    "type": "private_history",
-                    "messages": [
-                        {
-                            "from": sender.username if sender else "Unknown",
-                            "message": msg.content
-                        } for msg in messages
-                    ]
-                })
+                
+                    await websocket.send_json({
+                        "type": "private_history",
+                        "messages": [
+                            {
+                                "from": msg.sender_id,
+                                "message": msg.content
+                            } for msg in messages
+                        ]
+                    })
+                except ValueError as e:
+                    await websocket.send_json("error", str(e))
                 
 
             elif action == "join":
 
                 room_id = data.get("room_id")
+
                 chat_manager.join_room(room_id, user_id)
+
+                messages = MessageService.join_room(db, room_id)
 
                 await websocket.send_json({
                     "from": "system",
                     "message": f"Joined room {room_id}"
                 })
-
-                messages = db.query(Message).filter(
-                    Message.room_id == room_id
-                ).order_by(Message.created_at.desc()).all()
-
-                messages = list(reversed(messages))
-
-                sender = db.query(User).filter(User.id == msg.sender_id).first()
-
-                await websocket.send_json(
-                    {
-                        "type": "history",
-                        "messages": [
-                            {
-                                "from": sender.username if sender else "Unknown",
-                                "message": msg.content
-                            } for msg in messages
-                        ]
-                    })
+                if messages:
+                    await websocket.send_json(
+                        {
+                            "type": "history",
+                            "messages": [
+                                {
+                                    "from": user_id,
+                                    "message": msg.content
+                                } for msg in messages
+                            ]
+                        })
 
 
 
@@ -156,30 +123,23 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 room_id = data.get("room_id")
 
-                if "message" not in data:
+                if room_id not in chat_manager.rooms or user_id not in chat_manager.rooms[room_id]:
+                    await websocket.send_json({"error" : "room not found"})
                     continue
-                
-                msg = Message(
-                    id = str(uuid.uuid4()),
-                    sender_id = user_id,
-                    room_id = room_id,
-                    content = data["message"]
-                )
-
-                db.add(msg)
-                db.commit()
-
-                sender = db.query(User).filter(User.id == msg.sender_id).first()
-
+             
                 try:
+                       
+                    msg = MessageService.send_room_message(
+                        db, user_id, room_id, data.get("message")
+                    )
+
                     await chat_manager.broadcast(room_id, {
-                        "from": sender.username if sender else "unknown",
+                        "from": user_id,
                         "message": data["message"]
                     })
-                except KeyError:
-                    await websocket.send_json({
-                        "error" : "room not found"
-                    })
+
+                except ValueError as e:
+                    await websocket.send_json({"error" : str(e)})
 
 
     except WebSocketDisconnect:
