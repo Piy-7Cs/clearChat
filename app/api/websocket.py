@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from app.services.connection_manager import chat_manager
 from app.services.message_service import MessageService
+from app.services.room_service import RoomService
 from sqlalchemy import or_, and_
 
 
@@ -95,17 +96,19 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif action == "join":
 
-                room_id = data.get("room_id")
+                try: 
+                    room = RoomService.join_room(db, user_id, data.get("room_id"))
 
-                chat_manager.join_room(room_id, user_id)
+                    chat_manager.join_room(room.id, user_id)
 
-                messages = MessageService.join_room(db, room_id)
+                    messages = MessageService.get_room_history(db, room.id)
 
-                await websocket.send_json({
-                    "from": "system",
-                    "message": f"Joined room {room_id}"
-                })
-                if messages:
+                    
+                    await websocket.send_json({
+                        "from": "system",
+                        "message": f"Joined room {room.id}"
+                    })
+
                     await websocket.send_json(
                         {
                             "type": "history",
@@ -118,26 +121,26 @@ async def websocket_endpoint(websocket: WebSocket):
                         })
 
 
+                except ValueError as e:
+                    await websocket.send_json({"error": str(e)})
+
+
+
 
             elif action == "send_room_message":
 
-                room_id = data.get("room_id")
-
-                if room_id not in chat_manager.rooms or user_id not in chat_manager.rooms[room_id]:
-                    await websocket.send_json({"error" : "room not found"})
-                    continue
-             
                 try:
-                       
                     msg = MessageService.send_room_message(
-                        db, user_id, room_id, data.get("message")
+                        db, user_id, data.get("room_id"), data.get("message")
                     )
 
-                    await chat_manager.broadcast(room_id, {
-                        "from": user_id,
-                        "message": data["message"]
-                    })
-
+                    await chat_manager.broadcast(
+                        data.get("room_id"), 
+                        {
+                            "from" : user_id,
+                            "message" : msg.content
+                        }
+                    )
                 except ValueError as e:
                     await websocket.send_json({"error" : str(e)})
 

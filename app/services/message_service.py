@@ -1,5 +1,6 @@
 from app.models.message import Message
 from app.models.user import User
+from app.services.room_service import RoomService
 import uuid
 from sqlalchemy import or_ , and_
 
@@ -57,7 +58,7 @@ class MessageService:
     
 
     @staticmethod
-    def join_room(db, room_id):
+    def get_room_history(db, room_id):
 
         messages = db.query(Message).filter(
             Message.room_id == room_id
@@ -72,6 +73,10 @@ class MessageService:
 
         if not content:
             raise ValueError("Empty Messages")
+        
+        if not RoomService.is_member(db, user_id, room_id):
+            raise ValueError("Not a Member of this room"
+                             )
         msg = Message(
                     id = str(uuid.uuid4()),
                     sender_id = user_id,
