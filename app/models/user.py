@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime
+from sqlalchemy import Column, String, Boolean, DateTime, CheckConstraint
 from app.db.base import Base
 from datetime import datetime
 
@@ -16,3 +16,7 @@ class User(Base):
     #private = Column(Boolean)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        CheckConstraint("length(username) > 2", name="username not empty"),
+                      )

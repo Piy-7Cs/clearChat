@@ -15,22 +15,24 @@ def signup(data: SignupRequest):
     
     db: Session = SessionLocal()
 
+
     existing = db.query(User).filter(User.user_email == data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="User Email Already Exists")
-    
-    user = User(
-        id= str(uuid.uuid4()),
-        username = data.username,
-        user_email = data.email,
-        hashed_password = hash_password(data.password)
-    )
+    try : 
+        user = User(
+            id= str(uuid.uuid4()),
+            username = data.username,
+            user_email = data.email,
+            hashed_password = hash_password(data.password)
+        )
 
-    db.add(user)
-    db.commit()
+        db.add(user)
+        db.commit()
 
-    return {"message" : "User Registered Successfully"}
-
+        return {"message" : "User Registered Successfully"}
+    except Exception as e:
+        return {"message" : str(e)}
 
 @router.post("/login")
 def login(data: LoginRequest):
