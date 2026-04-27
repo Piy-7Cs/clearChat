@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 class RoomService:
 
     @staticmethod
-    def create_room(db: Session, creator_id: str, name: str):
+    def create_room(db: Session, creator_id: str, name: str, type: str):
         if not name:
             raise ValueError("Name of Room Required")
         
@@ -19,7 +19,8 @@ class RoomService:
         
         room = Room(
             id = str(uuid.uuid4()),
-            name = name
+            name = name,
+            type = type
         )
 
         db.add(room)

@@ -3,17 +3,26 @@ from app.services.room_service import RoomService
 
 async def handle_join(ws, db, user_id, data, chat_manager):
     
-    room_name = data["payload"]["room"]
-     
-    room = RoomService.join_room(db, user_id, room_name)
+    room_id = data["payload"]["room_id"]
+    room_name = data["payload"]["room_name"]
 
-    chat_manager.join_room(room.id, user_id)
 
-    messages = MessageService.get_room_history(db, room.id)
+    if not RoomService.is_member(db, user_id, room_id):
+        await ws.send_json({
+            "type": "error",
+            "message" : "Not a member of this rooms"
+        })
+
+        return 
+    
+
+    chat_manager.join_room(room_id, user_id)
+
+    messages = MessageService.get_room_history(db, room_id)
 
     await ws.send_json({
         "type": "system",
-        "message": f"joined {room.name}"
+        "message": f"joined {room_name}"
     })
 
     await ws.send_json({

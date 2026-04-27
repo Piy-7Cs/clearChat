@@ -8,6 +8,7 @@ class Room(Base):
 
     id = Column(String, primary_key=True)
     name = Column(String, unique=True)
+    type = Column(String, default="public") #Public | private
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
