@@ -4,7 +4,7 @@ from app.db.session import engine
 from app.db.base import Base
 from app.api.auth import router as auth_router
 from fastapi.middleware.cors import CORSMiddleware 
-
+from app.api.room import router as room_router
 
 
 
@@ -27,7 +27,7 @@ app.add_middleware(
 
 app.include_router(websocket_router)
 app.include_router(auth_router)
-
+app.include_router(room_router)
 
 
 

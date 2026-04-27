@@ -9,9 +9,6 @@ class ConnectionManager():
 
 
     async def connect(self, user_id, websocket: WebSocket):
-        if user_id in self.active:
-            await self.active[user_id].close()
-
         await websocket.accept()
         self.active[user_id] = websocket
 

@@ -63,7 +63,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     "type": "error",
                     "message" : "Invalid type"
                 })
-
+                continue
+            
             await handler(websocket, db, user_id, data, chat_manager)
 
     except WebSocketDisconnect:

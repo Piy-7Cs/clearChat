@@ -3,6 +3,7 @@ from app.models.room import Room
 from app.models.membership import Membership
 from app.models.user import User
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 
 
 class RoomService:
@@ -43,7 +44,7 @@ class RoomService:
         room = db.query(Room).filter(Room.name == room_name).first()
 
         if not room:
-            raise ValueError("Room not found")
+            raise HTTPException(status_code=404, detail="Room Not Found")
         
         existing = db.query(Membership).filter(
             Membership.user_id == user_id,

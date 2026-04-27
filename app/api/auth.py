@@ -38,12 +38,20 @@ def signup(data: SignupRequest):
 def login(data: LoginRequest):
     db: Session = SessionLocal()
 
+
     user = db.query(User).filter(   or_(User.user_email == data.identifier,
                                         User.username == data.identifier)
                                 ).first()
+    
+    print("USER FOUND:", user)
+    print("INPUT PASSWORD:", data.password)
+    print("HASH:", user.hashed_password)
 
-    if not user or not verify_password(data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid Credentials")
+    if not user:
+        raise HTTPException(401, "Invalid Credentials")
+
+    if not verify_password(data.password, user.hashed_password):
+        raise HTTPException(401, "Invalid Credentials")
     
     token = create_access_token({"sub": user.id})
 
