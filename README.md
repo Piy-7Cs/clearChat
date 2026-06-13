@@ -1,6 +1,6 @@
 # ClearChat
 
-A production-oriented real-time communication backend built with FastAPI and WebSockets.
+A real-time communication backend built with FastAPI and WebSockets.
 
 This project started as an exploration of WebSocket-based chat systems and gradually evolved into a backend-focused architecture project centered around authentication, protocol design, room management, and scalable real-time communication patterns.
 
